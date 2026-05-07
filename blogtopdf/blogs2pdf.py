@@ -5,12 +5,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List
 
-from weasyprint import HTML, CSS
+from weasyprint import HTML
 
 
-# -----------------------------
+# =========================================================
 # Data Model
-# -----------------------------
+# =========================================================
 
 @dataclass
 class Blog:
@@ -20,16 +20,45 @@ class Blog:
 
     @property
     def formatted_date(self) -> str:
-        return datetime.fromtimestamp(self.created_dt / 1000).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        """
+        Converts epoch milliseconds to readable datetime.
+        """
+        try:
+            return datetime.fromtimestamp(
+                self.created_dt / 1000
+            ).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return str(self.created_dt)
+
+    @property
+    def short_date(self) -> str:
+        """
+        Returns YYYY-MM-DD
+        """
+        try:
+            return datetime.fromtimestamp(
+                self.created_dt / 1000
+            ).strftime("%Y-%m-%d")
+        except Exception:
+            return str(self.created_dt)
 
 
-# -----------------------------
-# Parsing Mongo-safe dates
-# -----------------------------
+# =========================================================
+# Mongo-safe date parsing
+# =========================================================
 
 def parse_created_dt(value: Any) -> int:
+    """
+    Handles:
+    - int
+    - float
+    - string
+    - Mongo Extended JSON
+    """
+
+    if value is None:
+        return 0
+
     if isinstance(value, (int, float)):
         return int(value)
 
@@ -42,15 +71,16 @@ def parse_created_dt(value: Any) -> int:
     if isinstance(value, dict):
         if "$numberLong" in value:
             return int(value["$numberLong"])
+
         if "$date" in value:
             return int(value["$date"])
 
     return 0
 
 
-# -----------------------------
-# Load + sort
-# -----------------------------
+# =========================================================
+# Load Blogs
+# =========================================================
 
 def load_blogs(path: str) -> List[Blog]:
     with open(path, "r", encoding="utf-8") as f:
@@ -65,23 +95,63 @@ def load_blogs(path: str) -> List[Blog]:
         for item in raw
     ]
 
-    return sorted(blogs, key=lambda b: b.created_dt, reverse=True)
+    # newest first
+    return sorted(
+        blogs,
+        key=lambda b: b.created_dt,
+        reverse=True,
+    )
 
 
-# -----------------------------
+# =========================================================
 # HTML Template
-# -----------------------------
+# =========================================================
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
+
 <style>
+
+    @page {{
+        size: Letter;
+        margin: 20mm;
+
+        @bottom-center {{
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 10px;
+            color: #666;
+        }}
+    }}
+
     body {{
         font-family: Arial, sans-serif;
-        margin: 40px;
-        line-height: 1.5;
+        line-height: 1.6;
+        margin: 0;
+        padding: 0;
+    }}
+
+    .cover-page {{
+        height: 90vh;
+
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+
+        page-break-after: always;
+    }}
+
+    .cover-content h1 {{
+        font-size: 36px;
+        margin-bottom: 20px;
+    }}
+
+    .cover-content h2 {{
+        font-size: 24px;
+        color: #666;
     }}
 
     .blog {{
@@ -100,27 +170,34 @@ HTML_TEMPLATE = """
     }}
 
     .title {{
-        font-size: 22px;
+        font-size: 24px;
         font-weight: bold;
-        margin-top: 5px;
+        margin-top: 8px;
     }}
 
-    img {{
+    .content {{
+        font-size: 14px;
+    }}
+
+    .content img {{
         max-width: 100%;
         height: auto;
-        margin-top: 10px;
+        margin-top: 12px;
+        margin-bottom: 12px;
     }}
 
-    a {{
+    .content a {{
         color: #1a0dab;
         text-decoration: underline;
     }}
 
-    p {{
+    .content p {{
         margin: 10px 0;
     }}
+
 </style>
 </head>
+
 <body>
 
 {content}
@@ -130,41 +207,105 @@ HTML_TEMPLATE = """
 """
 
 
-def render_blog(blog: Blog) -> str:
+# =========================================================
+# Cover Page
+# =========================================================
+
+def render_cover_page(
+    author_name: str,
+    start_date: str,
+    end_date: str,
+) -> str:
+
     return f"""
-    <div class="blog">
-        <div class="header">
-            <div class="date">{blog.formatted_date}</div>
-            <div class="title">{blog.blog_name}</div>
-        </div>
-        <div class="content">
-            {blog.blog_content}
+    <div class="cover-page">
+        <div class="cover-content">
+            <h1>Blogs from {start_date} to {end_date}</h1>
+            <h2>By {author_name}</h2>
         </div>
     </div>
     """
 
 
-# -----------------------------
-# PDF Generation
-# -----------------------------
+# =========================================================
+# Blog Renderer
+# =========================================================
 
-def create_pdf(input_json: str, output_pdf: str) -> None:
+def render_blog(blog: Blog) -> str:
+    return f"""
+    <div class="blog">
+
+        <div class="header">
+            <div class="date">
+                {blog.formatted_date}
+            </div>
+
+            <div class="title">
+                {blog.blog_name}
+            </div>
+        </div>
+
+        <div class="content">
+            {blog.blog_content}
+        </div>
+
+    </div>
+    """
+
+
+# =========================================================
+# PDF Generation
+# =========================================================
+
+def create_pdf(
+    input_json: str,
+    output_pdf: str,
+    author_name: str,
+) -> None:
+
     blogs = load_blogs(input_json)
 
-    html_content = "\n".join(render_blog(b) for b in blogs)
-    full_html = HTML_TEMPLATE.format(content=html_content)
+    if not blogs:
+        raise ValueError("No blogs found in JSON")
 
-    HTML(string=full_html).write_pdf(
-        output_pdf,
-        stylesheets=[CSS(string="@page { size: Letter; margin: 20mm }")]
+    newest_blog = blogs[0]
+    oldest_blog = blogs[-1]
+
+    start_date = oldest_blog.short_date
+    end_date = newest_blog.short_date
+
+    # Cover page
+    cover_html = render_cover_page(
+        author_name=author_name,
+        start_date=start_date,
+        end_date=end_date,
     )
+
+    # Blog pages
+    blogs_html = "\n".join(
+        render_blog(blog)
+        for blog in blogs
+    )
+
+    # Final HTML
+    full_html = HTML_TEMPLATE.format(
+        content=cover_html + blogs_html
+    )
+
+    # Generate PDF
+    HTML(string=full_html).write_pdf(output_pdf)
 
     print(f"PDF created: {output_pdf}")
 
 
-# -----------------------------
-# Entry point
-# -----------------------------
+# =========================================================
+# Entry Point
+# =========================================================
 
 if __name__ == "__main__":
-    create_pdf("work/blogs.json", "work/blogs_output.pdf")
+
+    create_pdf(
+        input_json="work/blogs.json",
+        output_pdf="work/blogs_output.pdf",
+        author_name="Avinash"
+    )
