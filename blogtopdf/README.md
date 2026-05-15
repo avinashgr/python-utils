@@ -86,7 +86,8 @@ Expected output:
 Add `config.ini` before running the script:
 
 - `[mongodb]`: set `uri`, `database`, and `collection` for your MongoDB source.
-- `[files]`: set `json_export` for the exported blog JSON path and `pdf_output` for the generated PDF path.
+- `[files]`: 
+set `json_export` for the FULL exported blog JSON path and `pdf_output` for the FULL generated PDF path.
 - `[author]`: set `name` to the author name displayed in the PDF.
 
 Because `config.ini` can contain credentials and machine-specific paths, keep your local copy out of Git.

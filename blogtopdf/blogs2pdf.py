@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 import json
 import configparser
 from dataclasses import dataclass, asdict
@@ -9,13 +10,16 @@ from typing import Any, Dict, List
 from pymongo import MongoClient
 from weasyprint import HTML
 
+BASE_DIR = Path(__file__).resolve().parent
+CONFIG_PATH = BASE_DIR / "config.ini"
+
 
 # =========================================================
 # MongoDB Configuration
 # =========================================================
 
 config = configparser.ConfigParser()
-config.read("config.ini")
+config.read(CONFIG_PATH)
 
 # MongoDB Configuration
 MONGO_URI = config["mongodb"]["uri"]
