@@ -18,6 +18,7 @@ Main script: `blogs2pdf.py`
 - `pip`
 - Python package:
   - `weasyprint`
+  - `pymongo`
 
 ### System libraries for WeasyPrint
 
@@ -66,6 +67,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install weasyprint
+pip install pymongo
 ```
 
 ## How to run
@@ -78,6 +80,32 @@ Expected output:
 
 - Console message: `PDF created: work/blogs_output.pdf`
 - Generated file: `work/blogs_output.pdf`
+
+## Configure `config.ini`
+
+Add `config.ini` before running the script:
+
+- `[mongodb]`: set `uri`, `database`, and `collection` for your MongoDB source.
+- `[files]`: set `json_export` for the exported blog JSON path and `pdf_output` for the generated PDF path.
+- `[author]`: set `name` to the author name displayed in the PDF.
+
+Because `config.ini` can contain credentials and machine-specific paths, keep your local copy out of Git.
+
+The config.ini should like as below:
+
+```
+[mongodb]
+uri = mongodb://your url with the password/?authSource=gallerydb
+database = gallerydb
+collection = blogs
+
+[files]
+json_export = work/blogs.json
+pdf_output = work/blogs_output.pdf
+
+[author]
+name = Avinash
+```
 
 ## Notes
 

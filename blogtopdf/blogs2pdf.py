@@ -1,11 +1,33 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+import configparser
+from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import Any, Dict, List
 
+from pymongo import MongoClient
 from weasyprint import HTML
+
+
+# =========================================================
+# MongoDB Configuration
+# =========================================================
+
+config = configparser.ConfigParser()
+config.read("config.ini")
+
+# MongoDB Configuration
+MONGO_URI = config["mongodb"]["uri"]
+DATABASE_NAME = config["mongodb"]["database"]
+COLLECTION_NAME = config["mongodb"]["collection"]
+
+# File Paths
+JSON_EXPORT_FILE = config["files"]["json_export"]
+PDF_OUTPUT_FILE = config["files"]["pdf_output"]
+
+# Author
+AUTHOR_NAME = config["author"]["name"]
 
 
 # =========================================================
@@ -20,9 +42,6 @@ class Blog:
 
     @property
     def formatted_date(self) -> str:
-        """
-        Converts epoch milliseconds to readable datetime.
-        """
         try:
             return datetime.fromtimestamp(
                 self.created_dt / 1000
@@ -32,9 +51,6 @@ class Blog:
 
     @property
     def short_date(self) -> str:
-        """
-        Returns YYYY-MM-DD
-        """
         try:
             return datetime.fromtimestamp(
                 self.created_dt / 1000
@@ -79,10 +95,61 @@ def parse_created_dt(value: Any) -> int:
 
 
 # =========================================================
+# MongoDB Export
+# =========================================================
+
+def export_mongodb_collection_to_json(
+    mongo_uri: str,
+    database_name: str,
+    collection_name: str,
+    output_json_path: str,
+) -> None:
+
+    client = MongoClient(mongo_uri)
+
+    db = client[database_name]
+    collection = db[collection_name]
+
+    documents = list(collection.find())
+
+    # Convert ObjectId + unsupported BSON types
+    serializable_docs = []
+
+    for doc in documents:
+        cleaned_doc = {}
+
+        for key, value in doc.items():
+
+            # Convert ObjectId
+            if key == "_id":
+                cleaned_doc[key] = str(value)
+                continue
+
+            cleaned_doc[key] = value
+
+        serializable_docs.append(cleaned_doc)
+
+    with open(output_json_path, "w", encoding="utf-8") as f:
+        json.dump(
+            serializable_docs,
+            f,
+            indent=2,
+            ensure_ascii=False,
+            default=str,
+        )
+
+    print(
+        f"Exported {len(serializable_docs)} documents "
+        f"to {output_json_path}"
+    )
+
+
+# =========================================================
 # Load Blogs
 # =========================================================
 
 def load_blogs(path: str) -> List[Blog]:
+
     with open(path, "r", encoding="utf-8") as f:
         raw: List[Dict[str, Any]] = json.load(f)
 
@@ -95,7 +162,6 @@ def load_blogs(path: str) -> List[Blog]:
         for item in raw
     ]
 
-    # newest first
     return sorted(
         blogs,
         key=lambda b: b.created_dt,
@@ -232,6 +298,7 @@ def render_cover_page(
 # =========================================================
 
 def render_blog(blog: Blog) -> str:
+
     return f"""
     <div class="blog">
 
@@ -266,7 +333,7 @@ def create_pdf(
     blogs = load_blogs(input_json)
 
     if not blogs:
-        raise ValueError("No blogs found in JSON")
+        raise ValueError("No blogs found")
 
     newest_blog = blogs[0]
     oldest_blog = blogs[-1]
@@ -274,28 +341,46 @@ def create_pdf(
     start_date = oldest_blog.short_date
     end_date = newest_blog.short_date
 
-    # Cover page
     cover_html = render_cover_page(
         author_name=author_name,
         start_date=start_date,
         end_date=end_date,
     )
 
-    # Blog pages
     blogs_html = "\n".join(
         render_blog(blog)
         for blog in blogs
     )
 
-    # Final HTML
     full_html = HTML_TEMPLATE.format(
         content=cover_html + blogs_html
     )
 
-    # Generate PDF
     HTML(string=full_html).write_pdf(output_pdf)
 
     print(f"PDF created: {output_pdf}")
+
+
+# =========================================================
+# Full Pipeline
+# =========================================================
+
+def export_and_generate_pdf() -> None:
+
+    # Step 1
+    export_mongodb_collection_to_json(
+        mongo_uri=MONGO_URI,
+        database_name=DATABASE_NAME,
+        collection_name=COLLECTION_NAME,
+        output_json_path=JSON_EXPORT_FILE,
+    )
+
+    # Step 2
+    create_pdf(
+        input_json=JSON_EXPORT_FILE,
+        output_pdf=PDF_OUTPUT_FILE,
+        author_name=AUTHOR_NAME,
+    )
 
 
 # =========================================================
@@ -304,8 +389,4 @@ def create_pdf(
 
 if __name__ == "__main__":
 
-    create_pdf(
-        input_json="work/blogs.json",
-        output_pdf="work/blogs_output.pdf",
-        author_name="Avinash"
-    )
+    export_and_generate_pdf()
