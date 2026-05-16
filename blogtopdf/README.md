@@ -108,6 +108,21 @@ pdf_output = work/blogs_output.pdf
 name = Avinash
 ```
 
+## To run as a cron
+
+- Copy the code over to a folder say "/home/avinash/scripts/blogtopdf/"
+- cd to the folder and then run 
+
+```
+python3 -m venv venv
+source venv/bin/activate
+pip install -r resource.txt
+
+```
+Set the cron job with the full path
+
+0 */2 * * * /home/avinash/scripts/blogtopdf/run.sh
+
 ## Notes
 
 - To use a different input/output file, edit the last line in `blogs2pdf.py`:
