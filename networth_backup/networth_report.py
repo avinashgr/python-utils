@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import logging
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -141,8 +142,27 @@ def build_networth_summary_html(records):
     if not records:
         return ""
 
-    first = records[0]
-    latest = records[-1]
+    parsed_records = []
+    for record in records:
+        date_text = str(record.get("date", "")).strip()
+        time_text = str(record.get("time", "")).strip()
+        parsed_dt = None
+
+        for candidate_format in ("%m-%d-%y %I:%M:%S %p", "%m-%d-%y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %I:%M:%S %p"):
+            try:
+                parsed_dt = datetime.strptime(f"{date_text} {time_text}", candidate_format)
+                break
+            except ValueError:
+                continue
+
+        if parsed_dt is None:
+            parsed_dt = datetime.min
+
+        parsed_records.append({**record, "_dt": parsed_dt})
+
+    ordered_records = sorted(parsed_records, key=lambda record: record["_dt"])
+    first = ordered_records[0]
+    latest = ordered_records[-1]
     first_networth = parse_numeric(first.get("networth"))
     latest_networth = parse_numeric(latest.get("networth"))
     growth = latest_networth - first_networth
@@ -367,6 +387,7 @@ def generate_pdf_report(records, pdf_path):
 <body>
   <h1>Networth Snapshot Report</h1>
   <p>Generated from the charts rendered by the networth calculator app.</p>
+  {build_networth_summary_html(browser_records)}
   <div class=\"grid\">
     <div class=\"card\"><h3>Networth Trend</h3><img src=\"{chart_paths['trend'].as_uri()}\" /></div>
     <div class=\"card\"><h3>Networth Composition</h3><img src=\"{chart_paths['composition'].as_uri()}\" /></div>
