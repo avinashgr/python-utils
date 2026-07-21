@@ -248,6 +248,23 @@ def build_pdf_report_html(records):
     th {{ background: #f1f5f9; }}
     .muted {{ color: #64748b; }}
   </style>
+  <style>
+.grid {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}}
+
+.card {{
+    flex: 1 1 calc(50% - 10px);
+    box-sizing: border-box;
+}}
+
+.span-2 {{
+    flex: 1 1 100%;
+}}
+  </style>
+
 </head>
 <body>
   <h1>Networth Snapshot Report</h1>
@@ -428,12 +445,22 @@ def generate_pdf_report(records, pdf_path):
   <h1>Networth Snapshot Report</h1>
   <p>Generated from the charts rendered by the networth calculator app.</p>
   {build_networth_summary_html(browser_records)}
-  <div class=\"grid\">
-    <div class=\"card\"><h3>Networth Trend</h3><img src=\"{chart_paths['trend'].as_uri()}\" /></div>
-    <div class=\"card\"><h3>Networth Composition</h3><img src=\"{chart_paths['composition'].as_uri()}\" /></div>
-    <div class=\"card\"><h3>Asset Breakdown</h3><img src=\"{chart_paths['assets'].as_uri()}\" /></div>
-    <div class=\"card\"><h3>Liability Breakdown</h3><img src=\"{chart_paths['liabilities'].as_uri()}\" /></div>
-  </div>
+<div class="grid">
+    <div class="card">
+        <h3>Networth Trend</h3>
+        <img src="{chart_paths['trend'].as_uri()}" />
+    </div>
+
+    <div class="card">
+        <h3>Networth Composition</h3>
+        <img src="{chart_paths['composition'].as_uri()}" />
+    </div>
+
+    <div class="card span-2">
+        <h3>Asset and Liability Breakdown</h3>
+        <img src="{chart_paths['assets'].as_uri()}" />
+    </div>
+</div>
   <h2>CSV Snapshot Table</h2>
   <table>
     <thead><tr><th>Date</th><th>Time</th><th>Networth</th><th>Assets</th><th>Liabilities</th><th>Comments</th></tr></thead>
@@ -444,7 +471,6 @@ def generate_pdf_report(records, pdf_path):
 """
 
             page.set_content(html_report)
-            page.pdf(path=str(pdf_path), format="A4", print_background=True, margin={"top": "8mm", "right": "8mm", "bottom": "8mm", "left": "8mm"})
+            page.pdf(path=str(pdf_path), landscape=True, format="A4", print_background=True, margin={"top": "8mm", "right": "8mm", "bottom": "8mm", "left": "8mm"})
             browser.close()
-
     return pdf_path
