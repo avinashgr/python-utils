@@ -9,6 +9,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from networth_report import generate_pdf_report
+
 
 CSV_COLUMNS = [
     ("Date", "date"),
@@ -18,6 +20,13 @@ CSV_COLUMNS = [
     ("Liabilities", "liabilities"),
     ("Comments", "comments"),
 ]
+
+
+def resolve_path(path_value, base_dir):
+    path = Path(path_value)
+    if path.is_absolute():
+        return path
+    return (base_dir / path).resolve()
 
 
 def parse_args():
@@ -103,14 +112,14 @@ def convert_mongo_shell_query(query_text):
     return query_text
 
 
-def write_json(config):
+def write_json(config, config_path):
     from bson import json_util
     from pymongo import MongoClient
 
     mongo_config = config["mongodb"]
     files_config = config["files"]
     query = parse_query(mongo_config["query"])
-    json_path = Path(files_config["json_location"])
+    json_path = resolve_path(files_config["json_location"], config_path.parent)
     json_path.parent.mkdir(parents=True, exist_ok=True)
 
     with MongoClient(mongo_config["uri"]) as client:
@@ -136,13 +145,33 @@ def add_timestamp_to_csv_path(csv_path):
     return csv_path.with_name(f"{csv_path.stem}-{timestamp}{csv_path.suffix}")
 
 
-def write_csv(config):
+def write_csv(config, config_path):
     files_config = config["files"]
-    json_path = Path(files_config["json_location"])
-    csv_path = add_timestamp_to_csv_path(Path(files_config["csv_location"]))
+    json_path = resolve_path(files_config["json_location"], config_path.parent)
+    csv_path = add_timestamp_to_csv_path(resolve_path(files_config["csv_location"], config_path.parent))
     csv_path.parent.mkdir(parents=True, exist_ok=True)
 
     records = load_json(json_path)
+    parsed_records = []
+    for record in records:
+        record_date = str(record.get("date", "")).strip()
+        record_time = str(record.get("time", "")).strip()
+        parsed_dt = None
+
+        for candidate_format in ("%m-%d-%y %I:%M:%S %p", "%m-%d-%y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %I:%M:%S %p"):
+            try:
+                parsed_dt = datetime.strptime(f"{record_date} {record_time}", candidate_format)
+                break
+            except ValueError:
+                continue
+
+        if parsed_dt is None:
+            parsed_dt = datetime.min
+
+        parsed_records.append({**record, "_dt": parsed_dt})
+
+    records = sorted(parsed_records, key=lambda record: record["_dt"], reverse=True)
+    records = [{key: value for key, value in record.items() if key != "_dt"} for record in records]
     csv_buffer = io.StringIO()
     writer = csv.writer(csv_buffer)
     writer.writerow([column_name for column_name, _ in CSV_COLUMNS])
@@ -157,14 +186,29 @@ def write_csv(config):
     logging.info("Wrote %s CSV rows to %s", len(records), csv_path)
 
 
+def write_pdf(config, config_path):
+    files_config = config["files"]
+    pdf_location = files_config.get("pdf_location", "").strip()
+    if not pdf_location:
+        return
+
+    json_path = resolve_path(files_config["json_location"], config_path.parent)
+    pdf_path = resolve_path(pdf_location, config_path.parent)
+    records = load_json(json_path)
+    generate_pdf_report(records, pdf_path)
+    logging.info("Wrote PDF report to %s", pdf_path)
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = parse_args()
-    config = load_config(args.config)
+    config_path = Path(args.config)
+    config = load_config(config_path)
 
     if not args.skip_mongo:
-        write_json(config)
-    write_csv(config)
+        write_json(config, config_path)
+    write_csv(config, config_path)
+    write_pdf(config, config_path)
 
 
 if __name__ == "__main__":

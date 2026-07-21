@@ -1,6 +1,6 @@
 # Python Utils: Networth MongoDB to CSV
 
-This project contains a Python utility that exports networth data from MongoDB into a JSON file and converts that JSON into a CSV file.
+This project contains a Python utility that exports networth data from MongoDB into a JSON file, converts that JSON into a CSV file, and can generate a PDF report from the calculator page.
 
 ## What this code does
 
@@ -8,6 +8,8 @@ This project contains a Python utility that exports networth data from MongoDB i
 - Runs the configured MongoDB query against the configured database and collection
 - Writes the exported records to `work/networth.json`
 - Converts the JSON records into a timestamped CSV file like `work/Networth-07202026-0830.csv`
+- Sorts exported records by date and time before writing the CSV
+- Generates a PDF report that includes total networth, networth growth, chart images, and the snapshot table
 - Preserves multiline `assets` and `liabilities` values as quoted CSV fields
 
 Main script: `networth_export.py`
@@ -16,10 +18,11 @@ Main script: `networth_export.py`
 
 - Python 3.9+ recommended
 - `pip`
-- Python package:
+- Python packages:
   - `pymongo`
+  - `playwright`
 
-The `resources.txt` file also lists `weasyprint`, but this networth CSV export script only requires `pymongo`.
+The `resources.txt` file includes both dependencies needed by this project.
 
 ### Required JSON schema
 
@@ -63,10 +66,16 @@ pip install --upgrade pip
 pip install -r resources.txt
 ```
 
-If you only want to install the dependency used by this script:
+If you only want to install the runtime dependencies used by this script:
 
 ```bash
-pip install pymongo
+pip install pymongo playwright
+```
+
+Playwright also needs a browser binary installed before PDF generation can work:
+
+```bash
+python3 -m playwright install chromium
 ```
 
 ## Configure `config.ini`
@@ -90,6 +99,7 @@ query={}
 [files]
 json_location=work/networth.json
 csv_location=work/Networth.csv
+pdf_location=work/Networth.pdf
 ```
 
 The script appends the current date and time to `csv_location`. For example, `work/Networth.csv` becomes `work/Networth-07202026-0830.csv`.
@@ -106,6 +116,16 @@ This syntax is also supported:
 query={userId: ObjectId('6a0e71e71c5859b93df89fa9')}
 ```
 
+## PDF report generation
+
+When `pdf_location` is set in the `[files]` section, the export script will generate a PDF report after writing the CSV. The PDF uses the calculator page to capture chart images and includes:
+
+- Total networth
+- Networth growth summary
+- Networth trend and composition charts
+- Asset and liability breakdown charts
+- The snapshot table
+
 ## How to run
 
 Run the full MongoDB export and CSV conversion:
@@ -120,6 +140,7 @@ Expected output:
 - Console message: `INFO: Wrote ... CSV rows to work/Networth-<MMDDYYYY>-<HHMM>.csv`
 - Generated JSON file: `work/networth.json`
 - Generated CSV file: `work/Networth-<MMDDYYYY>-<HHMM>.csv`
+- Generated PDF report: `work/Networth.pdf` (when `pdf_location` is configured)
 
 To convert an existing JSON file without querying MongoDB:
 
@@ -146,7 +167,8 @@ Example setup:
 cd /home/avinash/scripts/networth_backup/
 python3 -m venv venv
 source venv/bin/activate
-pip install -r resources.txt
+python -m pip install -r resources.txt
+python -m playwright install chromium
 ```
 
 Example cron job that runs every day at 6:00 AM:
@@ -154,9 +176,23 @@ Example cron job that runs every day at 6:00 AM:
 ```cron
 0 6 * * * cd /home/avinash/scripts/networth_backup && /home/avinash/scripts/networth_backup/venv/bin/python networth_export.py --config config.ini
 ```
+As the cron maybe run as a sudo, you may need to run 
+
+```bash
+sudo -H <folder where the script is run>/venv/bin/python \
+-m playwright install chromium
+```
+
+This will install the browsers in the 'root' folder. Else you would get the error:
+
+```
+raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.Error: BrowserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell
+```
 
 ## Notes
 
-- The script sorts MongoDB results by `date` and then `time` in ascending order.
+- The script sorts records by date and then time before writing the CSV.
 - The CSV columns are `Date`, `Time`, `Networth`, `Assets`, `Liabilities`, and `Comments`.
 - The `work/` folder is used for generated files.
+- PDF generation requires Playwright and a browser binary such as Chromium.
