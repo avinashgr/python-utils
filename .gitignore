@@ -1,2 +1,4 @@
-blogtopdf/work/
-blogtopdf/config.ini
+**/work/
+**/config.ini
+**/venv/
+**/__pycache__/
