@@ -175,6 +175,36 @@ class NetworthExportPdfTests(unittest.TestCase):
             self.assertIn("From:", page.content)
             self.assertIn("To:", page.content)
 
+    def test_generate_pdf_report_orders_table_rows_chronologically(self):
+        records = [
+            {
+                "date": "01-02-26",
+                "time": "11:00:00 AM",
+                "networth": 110000.0,
+                "assets": "Checking | Main | 60000",
+                "liabilities": "Credit Card | Visa | 1000",
+                "comments": "Added value",
+            },
+            {
+                "date": "01-01-26",
+                "time": "10:00:00 AM",
+                "networth": 100000.0,
+                "assets": "Checking | Main | 50000",
+                "liabilities": "Credit Card | Visa | 1000",
+                "comments": "Initial snapshot",
+            },
+        ]
+        page = FakePage()
+        fake_playwright = FakePlaywright(page)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "report.pdf"
+            with patch("networth_report.sync_playwright", return_value=fake_playwright):
+                networth_report.generate_pdf_report(records, output_path)
+
+            table_body = page.content.split("<tbody>", 1)[1].split("</tbody>", 1)[0]
+            self.assertLess(table_body.index("01-01-26"), table_body.index("01-02-26"))
+
 
 if __name__ == "__main__":
     unittest.main()

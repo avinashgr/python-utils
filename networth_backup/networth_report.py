@@ -196,8 +196,28 @@ def build_pdf_report_html(records):
     dates = [record.get("date", "") for record in records]
     networth_values = [parse_numeric(record.get("networth")) for record in records]
 
-    rows = []
+    parsed_records = []
     for record in records:
+        date_text = str(record.get("date", "")).strip()
+        time_text = str(record.get("time", "")).strip()
+        parsed_dt = None
+
+        for candidate_format in ("%m-%d-%y %I:%M:%S %p", "%m-%d-%y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %I:%M:%S %p"):
+            try:
+                parsed_dt = datetime.strptime(f"{date_text} {time_text}", candidate_format)
+                break
+            except ValueError:
+                continue
+
+        if parsed_dt is None:
+            parsed_dt = datetime.min
+
+        parsed_records.append({**record, "_dt": parsed_dt})
+
+    ordered_records = sorted(parsed_records, key=lambda record: record["_dt"])
+
+    rows = []
+    for record in ordered_records:
         rows.append(
             f"<tr><td>{escape(str(record.get('date','')))}</td><td>{escape(str(record.get('time','')))}</td><td>{escape(format_currency(parse_numeric(record.get('networth'))))}</td><td>{escape(str(record.get('assets','')))}</td><td>{escape(str(record.get('liabilities','')))}</td><td>{escape(str(record.get('comments','')))}</td></tr>"
         )
@@ -363,9 +383,29 @@ def generate_pdf_report(records, pdf_path):
             # Use the same captured chart image for all PDF panels in the current report layout.
             chart_paths["liabilities"] = chart_paths["assets"]
 
+            ordered_browser_records = []
+            for record in browser_records:
+                date_text = str(record.get("date", "")).strip()
+                time_text = str(record.get("time", "")).strip()
+                parsed_dt = None
+
+                for candidate_format in ("%m-%d-%y %I:%M:%S %p", "%m-%d-%y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %I:%M:%S %p"):
+                    try:
+                        parsed_dt = datetime.strptime(f"{date_text} {time_text}", candidate_format)
+                        break
+                    except ValueError:
+                        continue
+
+                if parsed_dt is None:
+                    parsed_dt = datetime.min
+
+                ordered_browser_records.append({**record, "_dt": parsed_dt})
+
+            ordered_browser_records = sorted(ordered_browser_records, key=lambda record: record["_dt"], reverse=True)
+
             rows_html = "".join(
                 f"<tr><td>{escape(str(r.get('date','')))}</td><td>{escape(str(r.get('time','')))}</td><td>{escape(str(r.get('networth','')))}</td><td>{escape(str(r.get('assets','')))}</td><td>{escape(str(r.get('liabilities','')))}</td><td>{escape(str(r.get('comments','')))}</td></tr>"
-                for r in browser_records
+                for r in ordered_browser_records
             )
 
             html_report = f"""<!doctype html>
