@@ -243,7 +243,7 @@ def build_pdf_report_html(records):
     .card {{ border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; background: #f8fafc; }}
     .card strong {{ font-size: 20px; display: block; margin-top: 6px; }}
     .chart-section {{ margin: 20px 0; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 10px; }}
+    table {{ width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px; }}
     th, td {{ border: 1px solid #e2e8f0; padding: 6px; text-align: left; vertical-align: top; }}
     th {{ background: #f1f5f9; }}
     .muted {{ color: #64748b; }}
@@ -281,6 +281,14 @@ def build_pdf_report_html(records):
   <div class=\"chart-section\">
     <h2>CSV Snapshot Table</h2>
     <table>
+      <colgroup>
+        <col style="width: 5%;" />
+        <col style="width: 5%;" />
+        <col style="width: 5%;" />
+        <col style="width: 20%;" />
+        <col style="width: 20%;" />
+        <col style="width: 45%;" />
+      </colgroup>
       <thead><tr><th>Date</th><th>Time</th><th>Networth</th><th>Assets</th><th>Liabilities</th><th>Comments</th></tr></thead>
       <tbody>{''.join(rows)}</tbody>
     </table>
@@ -436,7 +444,7 @@ def generate_pdf_report(records, pdf_path):
     .grid {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 20px 0; }}
     .card {{ border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; background: #f9fafb; }}
     img {{ width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 8px; background: white; margin-bottom: 12px; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 10px; }}
+    table {{ width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px; }}
     th, td {{ border: 1px solid #e5e7eb; padding: 6px; text-align: left; vertical-align: top; }}
     th {{ background: #f3f4f6; }}
   </style>
@@ -463,6 +471,14 @@ def generate_pdf_report(records, pdf_path):
 </div>
   <h2>CSV Snapshot Table</h2>
   <table>
+      <colgroup>
+        <col style="width: 10%;" />
+        <col style="width: 10%;" />
+        <col style="width: 10%;" />
+        <col style="width: 15%;" />
+        <col style="width: 15%;" />
+        <col style="width: 40%;" />
+      </colgroup>
     <thead><tr><th>Date</th><th>Time</th><th>Networth</th><th>Assets</th><th>Liabilities</th><th>Comments</th></tr></thead>
     <tbody>{rows_html}</tbody>
   </table>

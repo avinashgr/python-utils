@@ -141,7 +141,8 @@ def load_json(json_path):
 
 
 def add_timestamp_to_csv_path(csv_path):
-    timestamp = datetime.now().strftime("%m%d%Y-%H%M")
+    # timestamp = datetime.now().strftime("%m%d%Y-%H%M")
+    timestamp = datetime.now().strftime("%m%d%Y")
     return csv_path.with_name(f"{csv_path.stem}-{timestamp}{csv_path.suffix}")
 
 
