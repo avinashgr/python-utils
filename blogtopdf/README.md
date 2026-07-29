@@ -8,6 +8,7 @@ This project contains a Python utility that converts blog data from a JSON file 
 - Parses `created_dt` values (including Mongo-style objects like `{"$numberLong": "..."}`)
 - Sorts blogs by newest date first
 - Renders each blog entry into HTML
+- Preserves `img` tag `width` and `height` attributes when generating the PDF
 - Generates a final PDF file (`work/blogs_output.pdf`) using WeasyPrint
 
 Main script: `blogs2pdf.py`
@@ -66,8 +67,14 @@ From the `blogtopdf` folder:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install weasyprint
-pip install pymongo
+pip install weasyprint pymongo
+```
+
+If you prefer a requirements file, create one with:
+
+```text
+weasyprint
+pymongo
 ```
 
 ## How to run

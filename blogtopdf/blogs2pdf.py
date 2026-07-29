@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import json
 import configparser
 from dataclasses import dataclass, asdict
@@ -250,6 +251,7 @@ HTML_TEMPLATE = """
     }}
 
     .content img {{
+        width: auto;
         max-width: 100%;
         height: auto;
         margin-top: 12px;
@@ -317,11 +319,45 @@ def render_blog(blog: Blog) -> str:
         </div>
 
         <div class="content">
-            {blog.blog_content}
+            {normalize_img_sizes(blog.blog_content)}
         </div>
 
     </div>
     """
+
+
+def normalize_img_sizes(html: str) -> str:
+    """Preserve img tag width/height attributes by converting them into inline style."""
+    def replace(match: re.Match) -> str:
+        tag = match.group(0)
+        if re.search(r'style\s*=\s*', tag, re.I):
+            return tag
+
+        width_match = re.search(r'width\s*=\s*["\']?([^"\'>\s]+)["\']?', tag, re.I)
+        height_match = re.search(r'height\s*=\s*["\']?([^"\'>\s]+)["\']?', tag, re.I)
+
+        if not width_match and not height_match:
+            return tag
+
+        style_parts = []
+        if width_match:
+            width_value = width_match.group(1)
+            if width_value.isdigit():
+                width_value += "px"
+            style_parts.append(f"width:{width_value};")
+        if height_match:
+            height_value = height_match.group(1)
+            if height_value.isdigit():
+                height_value += "px"
+            style_parts.append(f"height:{height_value};")
+
+        insert_pos = tag.rfind(">")
+        if insert_pos == -1:
+            return tag
+
+        return tag[:insert_pos] + f' style="{" ".join(style_parts)}"' + tag[insert_pos:]
+
+    return re.sub(r'<img\b[^>]*>', replace, html, flags=re.I)
 
 
 # =========================================================
